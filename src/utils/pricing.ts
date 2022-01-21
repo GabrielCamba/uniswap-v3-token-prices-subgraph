@@ -1,6 +1,6 @@
 /* eslint-disable prefer-const */
 import { ONE_BD, ZERO_BD, ZERO_BI } from './constants'
-import { Bundle, Pool, Token } from './../types/schema'
+import { Bundle, UniswapPool, Token } from './../../generated/schema'
 import { BigDecimal, BigInt } from '@graphprotocol/graph-ts'
 import { exponentToBigDecimal, safeDiv } from '../utils/index'
 
@@ -9,7 +9,7 @@ const USDC_WETH_03_POOL = '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8'
 
 // token where amounts should contribute to tracked volume and liquidity
 // usually tokens that many tokens are paired with s
-export let WHITELIST_TOKENS: string[] = [
+export let ALLOWED_TOKENS: string[] = [
   WETH_ADDRESS, // WETH
   '0x6b175474e89094c44da98b954eedeac495271d0f', // DAI
   '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
@@ -58,7 +58,7 @@ export function sqrtPriceX96ToTokenPrices(sqrtPriceX96: BigInt, token0: Token, t
 
 export function getEthPriceInUSD(): BigDecimal {
   // fetch eth prices for each stablecoin
-  let usdcPool = Pool.load(USDC_WETH_03_POOL) // dai is token0
+  let usdcPool = UniswapPool.load(USDC_WETH_03_POOL) // dai is token0
   if (usdcPool !== null) {
     return usdcPool.token0Price
   } else {
@@ -74,7 +74,7 @@ export function findEthPerToken(token: Token): BigDecimal {
   if (token.id == WETH_ADDRESS) {
     return ONE_BD
   }
-  let whiteList = token.whitelistPools
+  let whiteList = token.allowedPools
   // for now just take USD from pool with greatest TVL
   // need to update this to actually detect best rate based on liquidity distribution
   let largestLiquidityETH = ZERO_BD
@@ -82,17 +82,17 @@ export function findEthPerToken(token: Token): BigDecimal {
   let bundle = Bundle.load('1')
 
   // hardcoded fix for incorrect rates
-  // if whitelist includes token - get the safe price
+  // if allowed includes token - get the safe price
   if (STABLE_COINS.includes(token.id)) {
     priceSoFar = safeDiv(ONE_BD, bundle.ethPriceUSD)
   } else {
     for (let i = 0; i < whiteList.length; ++i) {
       let poolAddress = whiteList[i]
-      let pool = Pool.load(poolAddress)
+      let pool = UniswapPool.load(poolAddress)
 
       if (pool.liquidity.gt(ZERO_BI)) {
         if (pool.token0 == token.id) {
-          // whitelist token is token1
+          // allowed token is token1
           let token1 = Token.load(pool.token1)
           // get the derived ETH in pool
           let ethLocked = pool.totalValueLockedToken1.times(token1.derivedETH)
@@ -119,8 +119,8 @@ export function findEthPerToken(token: Token): BigDecimal {
 }
 
 /**
- * Accepts tokens and amounts, return tracked amount based on token whitelist
- * If one token on whitelist, return amount in that token converted to USD * 2.
+ * Accepts tokens and amounts, return tracked amount based on token allowed
+ * If one token on allowed, return amount in that token converted to USD * 2.
  * If both are, return sum of two amounts
  * If neither is, return 0
  */
@@ -134,18 +134,18 @@ export function getTrackedAmountUSD(
   let price0USD = token0.derivedETH.times(bundle.ethPriceUSD)
   let price1USD = token1.derivedETH.times(bundle.ethPriceUSD)
 
-  // both are whitelist tokens, return sum of both amounts
-  if (WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+  // both are allowed tokens, return sum of both amounts
+  if (ALLOWED_TOKENS.includes(token0.id) && ALLOWED_TOKENS.includes(token1.id)) {
     return tokenAmount0.times(price0USD).plus(tokenAmount1.times(price1USD))
   }
 
-  // take double value of the whitelisted token amount
-  if (WHITELIST_TOKENS.includes(token0.id) && !WHITELIST_TOKENS.includes(token1.id)) {
+  // take double value of the alloweded token amount
+  if (ALLOWED_TOKENS.includes(token0.id) && !ALLOWED_TOKENS.includes(token1.id)) {
     return tokenAmount0.times(price0USD).times(BigDecimal.fromString('2'))
   }
 
-  // take double value of the whitelisted token amount
-  if (!WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+  // take double value of the alloweded token amount
+  if (!ALLOWED_TOKENS.includes(token0.id) && ALLOWED_TOKENS.includes(token1.id)) {
     return tokenAmount1.times(price1USD).times(BigDecimal.fromString('2'))
   }
 
