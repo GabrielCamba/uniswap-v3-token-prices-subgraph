@@ -1,7 +1,4 @@
-# Uniswap V3 Subgraph
+# Uniswap V3 token prices Subgraph
 
-### Subgraph Endpoint 
+### This is a croped version of uniswap v3 subgraph created to pick token prices estimation
 
-Synced at: https://thegraph.com/hosted-service/subgraph/ianlapham/uniswap-v3-subgraph?selected=playground
-
-Pending Changes at same URL
